@@ -1,7 +1,6 @@
 import React, {Component} from 'react';
 import './App.css';
 import Particles from 'react-particles-js';
-import Clarifai from 'clarifai';
 import Navigation from '../components/navigation/Navigation';
 import Logo from '../components/logo/Logo';
 import Rank from '../components/rank/Rank';
@@ -29,28 +28,26 @@ const particlesOptions = {
   }
 }
 
-const app = new Clarifai.App({
-  apiKey: '6b11a0cae5e142ba880cf054fe33fbea'
- });
+const initialState = { 
+  input: '',
+  imgUrl: '',
+  box: [],
+  route: 'signin',
+  isSignedIn : false,
+  user: {
+    id: '',
+    email: '',
+    name: '',
+    entries: 0,
+    joined: ''
+  }
+}
 
 class App extends Component {
 
   constructor(){
     super();
-    this.state = {
-      input: '',
-      imgUrl: '',
-      box: {},
-      route: 'signin',
-      isSignedIn : false,
-      user: {
-        id: '',
-        email: '',
-        name: '',
-        entries: 0,
-        joined: ''
-      }
-    }
+    this.state = initialState;
   }
 
   loadUser = (data) => {
@@ -64,17 +61,22 @@ class App extends Component {
   }
 
   calculateFaceLocation = (data) => {
-    console.log(data);
-    const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
-    const image = document.getElementById('inputImg');
-    const width = Number(image.width);
-    const height = Number(image.height);
-    return {
-      leftCol: clarifaiFace.left_col * width,
-      topRow: clarifaiFace.top_row * height,
-      rightCol: width - (clarifaiFace.right_col * width),
-      bottomRow: height - (clarifaiFace.bottom_row * height)
-    }
+    let box = [];
+    data.outputs.forEach(output => {
+      output.data.regions.forEach(region => {
+        let clarifaiFace = region.region_info.bounding_box;
+        let image = document.getElementById('inputImg');
+        let width = Number(image.width);
+        let height = Number(image.height);
+        box.push( {
+          leftCol: clarifaiFace.left_col * width,
+          topRow: clarifaiFace.top_row * height,
+          rightCol: width - (clarifaiFace.right_col * width),
+          bottomRow: height - (clarifaiFace.bottom_row * height)
+        } )
+      })
+    })
+    return box;
   }
 
   displayFaceBox = (box) => {
@@ -88,33 +90,36 @@ class App extends Component {
 
   onSubmit = () => {
     this.setState({ imgUrl: this.state.input });
-    app.models
-      .predict(
-        Clarifai.FACE_DETECT_MODEL,
-        this.state.input
-      )
-      .then((response) => {
-        if(response){
-          fetch('http://localhost:3001/image', {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              id: this.state.user.id
-            })
-          })
-            .then(res => res.json())
-            .then(count => {
-              this.setState(Object.assign(this.state.user, { entries: count }))
-            })
-        }
-        this.displayFaceBox(this.calculateFaceLocation(response))
+    fetch('http://localhost:3001/imageURL', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        input: this.state.input
       })
-      .catch(error => console.log(error));
+    })
+    .then(response => response.json())
+    .then((response) => {
+      if(response){
+        fetch('http://localhost:3001/image', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            id: this.state.user.id
+          })
+        })
+          .then(res => res.json())
+          .then(count => {
+            this.setState(Object.assign(this.state.user, { entries: count }))
+          })
+      }
+      this.displayFaceBox(this.calculateFaceLocation(response))
+    })
+    .catch(error => console.log(error));
   }
 
   onRouteChange = (route) => {
     if(route === 'signin'){
-      this.setState({isSignedIn: false});
+      this.setState({state: initialState});
     }else if (route === 'home'){
       this.setState({isSignedIn: true});
     }

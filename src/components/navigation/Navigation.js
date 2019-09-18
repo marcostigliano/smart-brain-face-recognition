@@ -5,7 +5,7 @@ const Navigation = ({ onRouteChange, isSignedIn }) => {
     if(isSignedIn){ 
       return (
         <div 
-          className="navigation"
+          className=""
           style={{ display: 'flex', justifyContent: 'flex-end'}}
         >
           <p
@@ -19,7 +19,7 @@ const Navigation = ({ onRouteChange, isSignedIn }) => {
     } else {
       return (
         <div 
-          className="navigation" 
+          className="" 
           style={{ display: 'flex', justifyContent: 'flex-end'}}
         >
           <p
